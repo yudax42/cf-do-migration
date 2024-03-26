@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from 'node:fs'
 import { URL } from 'node:url'
 import yargs from 'yargs'

@@ -10,5 +10,6 @@ export default {
   output: {
     dir: 'dist',
     format: 'esm',
+    banner: '#!/usr/bin/env node',
   },
 }
