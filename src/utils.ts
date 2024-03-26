@@ -1,3 +1,4 @@
+import kleur from 'kleur'
 import type { KeyValue, RetryOptions } from './types'
 
 export async function withRetry<T>(operation: () => Promise<T>, options: RetryOptions): Promise<T> {
@@ -26,4 +27,40 @@ export function splitIntoBatches(data: KeyValue, batchSize: number): KeyValue[] 
     batches.push(Object.fromEntries(batchEntries))
   }
   return batches
+}
+
+export function generateRandomData(size: number): KeyValue {
+  const data: KeyValue = {}
+  for (let i = 0; i < size; i++) {
+    const key = `key${i}`
+    const value = Math.random()
+    data[key] = value
+  }
+  return data
+}
+
+const stdout = console
+
+export function logInfo(message: string) {
+  stdout.log(kleur.green(message))
+}
+
+export function logWarning(message: string) {
+  stdout.log(kleur.yellow(message))
+}
+
+export function logError(message: string) {
+  stdout.error(kleur.red(message))
+}
+
+export function logData(message: string) {
+  stdout.log(kleur.blue(message))
+}
+
+export function logProcess(message: string) {
+  stdout.log(kleur.magenta(message))
+}
+
+export function logBatch(message: string) {
+  stdout.log(kleur.cyan(message))
 }
