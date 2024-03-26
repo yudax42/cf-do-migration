@@ -1,12 +1,12 @@
 {
   "name": "mido",
   "type": "module",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "keywords": [],
   "author": "Yudax",
   "license": "MIT",
-  "main": "./dist/index.js",
+  "main": "./src/index.ts",
   "engines": {
     "node": "18"
   },
