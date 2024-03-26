@@ -1,0 +1,79 @@
+import { promises as fs } from 'node:fs'
+import fetch from 'node-fetch'
+import type { FetchDataResponse, KeyValue } from './types'
+import { splitIntoBatches, withRetry } from './utils'
+
+let sourceBaseUrl: string
+let targetBaseUrl: string
+let batchSize: number
+let durableObjectIds: string[]
+
+async function initGlobals(source: string, dest: string, size: number, inputFile: string): Promise<void> {
+  sourceBaseUrl = source
+  targetBaseUrl = dest
+  batchSize = size
+  const idsData = await fs.readFile(inputFile, { encoding: 'utf8' })
+  durableObjectIds = JSON.parse(idsData)
+}
+
+async function fetchData(doId: string): Promise<void> {
+  const url = `${sourceBaseUrl}?doId=${doId}`
+  await withRetry<void>(async () => {
+    let lastKey: string | undefined
+    let allData: KeyValue = {}
+    do {
+      const queryParams = lastKey ? `&startAfter=${lastKey}` : ''
+      const response = await fetch(`${url}${queryParams}`)
+      if (!response.ok)
+        throw new Error(`Failed to fetch data for DO ID ${doId}: ${response.statusText}`)
+      const { data, lastKey: newLastKey } = await response.json() as FetchDataResponse
+      allData = { ...allData, ...data }
+      lastKey = newLastKey
+    } while (lastKey)
+    await fs.writeFile(`${doId}.json`, JSON.stringify(allData))
+  }, { retries: 3, delay: 1000 })
+}
+
+async function uploadBatch(doId: string, batch: KeyValue): Promise<void> {
+  const url = `${targetBaseUrl}?doId=${doId}`
+  await withRetry<void>(async () => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(batch),
+    })
+    if (!response.ok)
+      throw new Error(`Failed to upload batch for DO ID ${doId}: ${response.statusText}`)
+  }, { retries: 3, delay: 1000 })
+}
+
+async function readDataFromFile(doId: string): Promise<KeyValue[]> {
+  const data = await fs.readFile(`${doId}.json`, { encoding: 'utf8' })
+  return JSON.parse(data)
+}
+
+async function migrateDataForDoId(doId: string): Promise<void> {
+  await fetchData(doId)
+  const data = await readDataFromFile(doId)
+  const batches = splitIntoBatches(data, batchSize)
+  for (const batch of batches)
+    await uploadBatch(doId, batch)
+}
+
+export async function migrate(source: string, dest: string, size: number, inputFile: string): Promise<void> {
+  try {
+    await initGlobals(source, dest, size, inputFile)
+    const migrationPromises = durableObjectIds.map(migrateDataForDoId)
+    const results = await Promise.allSettled(migrationPromises)
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled')
+        console.error(`Migration succeeded for DO ID: ${durableObjectIds[index]}`)
+      else
+        console.error(`Migration failed for DO ID: ${durableObjectIds[index]}:`, result.reason)
+    })
+  }
+  catch (error) {
+    console.error('An unexpected error occurred during migration:', error)
+  }
+}
