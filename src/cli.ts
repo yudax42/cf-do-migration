@@ -12,7 +12,7 @@ yargs(hideBin(process.argv))
   .usage('$0 [args]')
   .command(
     'migrate',
-    'Migrate durable objects between environments',
+    'Migrate durable objects between zones',
     (args) => {
       return args
         .option('source', {
